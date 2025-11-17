@@ -1,0 +1,45 @@
+        .navbar-center {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Aseguramos que el botón de login esté a la derecha */
+        .navbar-right {
+            margin-left: auto;
+        }
+        .loginbody {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        }
+
+        .login-box {
+            width: 380px;
+            background: #e6e6e6;
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid black;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+
+        }
+
+        .login-box h2 {
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+
+        .login-box input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #777;
+        border-radius: 8px;
+        margin-top: 5px;
+        }
+
+        #loginbutton{
+            width: 50%;
+        }

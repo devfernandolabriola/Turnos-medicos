@@ -1,0 +1,78 @@
+{% extends 'Turnosmedicos/index.html' %}
+{% load static %}
+
+{% block title %}Mis Turnos{% endblock %}
+
+{% block content %}
+<h2 class="mb-4 text-center">Mis Turnos</h2>
+
+{% if turnos %}
+<div class="table-responsive w-75 mx-auto">
+    {% if messages %}
+<div class="container w-75 mx-auto mt-3">
+    {% for message in messages %}
+        <div class="alert 
+                    {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} 
+                    alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+    <table class="table table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Médico</th>
+                <th>Especialidad</th>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for turno in turnos %}
+            <tr>
+                <td>{{ turno.medico.nombre }} {{ turno.medico.apellido }}</td>
+                <td>{{ turno.medico.especialidad.nombre }}</td>
+                <td>{{ turno.fecha }}</td>
+                <td>{{ turno.hora|time:"H:i" }}</td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelModal{{ turno.id }}">
+                        Cancelar
+                    </button>
+                    <div class="modal fade" id="cancelModal{{ turno.id }}" tabindex="-1" aria-labelledby="cancelModalLabel{{ turno.id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="cancelModalLabel{{ turno.id }}">Confirmar Cancelación</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    ¿Estás seguro que quieres cancelar el turno con {{ turno.medico.nombre }} {{ turno.medico.apellido }} el {{ turno.fecha }} a las {{ turno.hora|time:"H:i" }}?
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <form method="post" action="{% url 'mis_turnos' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="turno_id" value="{{ turno.id }}">
+                                        <button type="submit" class="btn btn-danger">Sí, cancelar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="text-center fs-5">No tienes turnos agendados.</p>
+<div class="text-center mt-3">
+    <a href="{% url 'tomar_turno' %}" class="btn btn-primary">📅 Sacar un turno</a>
+</div>
+{% endif %}
+{% endblock %}
