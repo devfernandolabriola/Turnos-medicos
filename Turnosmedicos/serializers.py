@@ -3,7 +3,7 @@ from .models import Especialidad
 from .models import Medico
 from .models import Turno
 from .models import DisponibilidadMedico
-from .models import Paciente
+from .models import Paciente, ObraSocial
 from django.contrib.auth.hashers import make_password
 
 class EspecialidadSerializer(serializers.ModelSerializer):
@@ -26,11 +26,17 @@ class MedicoSerializer(serializers.ModelSerializer):
         fields = ['id', 'nombre', 'apellido', 'especialidad', 'especialidad_id']
 
 class PacienteSerializer(serializers.ModelSerializer):
+    obra_social = serializers.PrimaryKeyRelatedField(
+        queryset=ObraSocial.objects.all(),
+        required=False,
+        allow_null=False
+    )
+
     class Meta:
         model = Paciente
-        fields = ['nombre', 'apellido', 'dni', 'password']  # Solo los campos necesarios
+        fields = ['nombre', 'apellido', 'dni','correo','telefono','obra_social','numero_asociado','password']
         extra_kwargs = {
-            'password': {'write_only': True}  # Para que no se muestre en GET
+            'password': {'write_only': True} 
         }
 
     def create(self, validated_data):

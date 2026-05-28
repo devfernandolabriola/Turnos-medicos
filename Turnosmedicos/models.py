@@ -6,6 +6,13 @@ class Especialidad(models.Model):
 
     def __str__(self):
         return self.nombre
+    
+
+class ObraSocial(models.Model):
+    nombre = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.nombre
 
 class Medico(models.Model):
     nombre = models.CharField(max_length=100)
@@ -22,6 +29,8 @@ class Paciente(models.Model):
     apellido = models.CharField(max_length=100)
     dni = models.CharField(max_length=15, unique=True)
     password = models.CharField(max_length=128)
+    es_recepcionista = models.BooleanField(default=False)
+    obrasocial = models.ForeignKey(ObraSocial, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.apellido}, {self.nombre}"
@@ -44,3 +53,15 @@ class Turno(models.Model):
 
     def __str__(self):
         return f"{self.fecha} {self.hora} - {self.medico}"
+
+class Licencia(models.Model):
+    motivo = models.CharField(max_length=200)
+    fecha_inicio = models.DateTimeField()
+    fecha_fin = models.DateTimeField()
+    medicoid = models.ForeignKey('Turnosmedicos.Medico', on_delete=models.CASCADE)
+
+    class Meta:
+        managed = False
+        db_table = 'turnosmedicos_licencia'
+
+

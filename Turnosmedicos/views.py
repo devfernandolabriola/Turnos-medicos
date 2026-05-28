@@ -20,6 +20,9 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import render
+from django.contrib.auth.decorators import user_passes_test
+from .decorators import es_recepcionista
 from datetime import datetime, timedelta
 import locale
 
@@ -46,6 +49,19 @@ class TurnoViewSet(viewsets.ModelViewSet):
     serializer_class = TurnoSerializer
 
 def index(request):
+    paciente_id = request.session.get("paciente_id")
+    if not paciente_id:
+        return redirect('http://127.0.0.1:8000/login/')
+
+    try:
+        usuario_actual = Paciente.objects.get(id=paciente_id)
+    except Paciente.DoesNotExist:
+        request.session.flush()
+        return redirect('http://127.0.0.1:8000/login/')
+
+    if usuario_actual.es_recepcionista:
+        return render(request, 'Turnosmedicos/index_recepcionista.html')
+    
     return render(request, 'Turnosmedicos/index.html')
 
 @api_view(['POST'])
@@ -60,16 +76,13 @@ def login(request):
     try:
         paciente = Paciente.objects.get(dni=dni)
     except Paciente.DoesNotExist:
-        return Response({"error": "Paciente no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
     
     if not check_password(password, paciente.password):
         return Response({"error": "Contraseña incorrecta"}, status=status.HTTP_400_BAD_REQUEST)
     
     request.session["paciente_id"] = paciente.id
     return Response({"mensaje": "Login correcto", "paciente_id": paciente.id})
-
-from rest_framework import status
-from rest_framework.response import Response
 
 def register(request):
     serializer = PacienteSerializer(data=request.data)
@@ -124,11 +137,6 @@ def register_view(request):
 def logout_view(request):
     request.session.flush()
     return redirect('index')
-
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from datetime import datetime
-from .models import Paciente, Medico, Turno, Especialidad
 
 def tomar_turno(request):
     # Verificar paciente logueado

@@ -1,0 +1,156 @@
+{% extends 'Turnosmedicos/index.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+
+<div class="container mt-5">
+    {% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+    <h2>Tomar un Turno</h2>
+
+    <form method="post" id="turno-form">
+        {% csrf_token %}
+
+        <!-- Hidden inputs para enviar datos reales -->
+        <input type="hidden" id="hidden-medico" name="medico">
+        <input type="hidden" id="hidden-fecha" name="fecha">
+        <input type="hidden" id="hidden-hora" name="hora">
+
+        <!-- Especialidad -->
+<div class="mb-3">
+    <label class="form-label">Especialidad</label>
+    <select id="especialidad-select" name="especialidad" class="form-select">
+        <option value="">Seleccione una especialidad</option>
+
+        {% for esp in especialidades %}
+            <option value="{{ esp.id }}">{{ esp.nombre }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+
+        <!-- Médico -->
+        <div class="mb-3">
+            <label class="form-label">Médico</label>
+            <select id="medico-select" class="form-select" disabled>
+                <option value="">Seleccione un médico</option>
+            </select>
+        </div>
+
+        <!-- Fecha -->
+        <div class="mb-3">
+            <label class="form-label">Fecha</label>
+            <select id="fecha-select" class="form-select" disabled>
+                <option value="">Seleccione una fecha</option>
+            </select>
+        </div>
+
+        <!-- Horarios -->
+        <div class="mb-3">
+            <label class="form-label">Horario</label>
+            <select id="horario-select" class="form-select" disabled>
+                <option value="">Seleccione un horario</option>
+            </select>
+        </div>
+
+        <!-- Botón -->
+        <button type="submit" id="confirmar-btn" class="btn btn-success" disabled>
+            Confirmar Turno
+        </button>
+    </form>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+$(document).ready(function() {
+
+    // ------------------------------
+    // Cambia especialidad → carga médicos
+    // ------------------------------
+    $('#especialidad-select').change(function() {
+        var esp = $(this).val();
+
+        // Reset
+        $('#medico-select').prop('disabled', true).empty().append('<option>Seleccione un médico</option>');
+        $('#fecha-select').prop('disabled', true).empty().append('<option>Seleccione una fecha</option>');
+        $('#horario-select').prop('disabled', true).empty().append('<option>Seleccione un horario</option>');
+        $('#confirmar-btn').prop('disabled', true);
+
+        if (esp) {
+            $.get("{% url 'ajax_medicos' %}", { especialidad: esp }, function(data){
+                $('#medico-select').prop('disabled', false);
+                data.forEach(function(m){
+                    $('#medico-select').append('<option value="'+m.id+'">'+m.nombre+'</option>');
+                });
+            });
+        }
+    });
+
+    // ------------------------------
+    // Cambia médico → cargar fechas disponibles
+    // ------------------------------
+    $('#medico-select').change(function() {
+        var medicoId = $(this).val();
+
+        $('#hidden-medico').val(medicoId);
+
+        $('#fecha-select').prop('disabled', true).empty().append('<option value="">Seleccione una fecha</option>');
+        $('#horario-select').prop('disabled', true).empty().append('<option value="">Seleccione un horario</option>');
+        $('#confirmar-btn').prop('disabled', true);
+
+        if (medicoId) {
+            $.get("{% url 'ajax_fechas' %}", { medico: medicoId }, function(data) {
+                $('#fecha-select').prop('disabled', false);
+
+                data.forEach(function(f) {
+                    $('#fecha-select').append('<option value="' + f.valor + '">' + f.texto + '</option>');
+                });
+            });
+        }
+    });
+
+    // ------------------------------
+    // Cambia fecha → cargar horarios
+    // ------------------------------
+    $('#fecha-select').change(function() {
+        var medicoId = $('#medico-select').val();
+        var fecha = $(this).val();
+
+        $('#hidden-fecha').val(fecha);
+
+        $('#horario-select').prop('disabled', true).empty().append('<option>Seleccione un horario</option>');
+        $('#confirmar-btn').prop('disabled', true);
+
+        if (fecha && medicoId) {
+            $.get("{% url 'ajax_turnos' %}", { medico: medicoId, fecha: fecha }, function(data) {
+                $('#horario-select').prop('disabled', false);
+
+                data.forEach(function(t) {
+                    $('#horario-select').append('<option value="'+t.hora+'">'+t.hora+'</option>');
+                });
+            });
+        }
+    });
+
+    // ------------------------------
+    // Cambia horario → habilita botón
+    // ------------------------------
+    $('#horario-select').change(function() {
+        var hora = $(this).val();
+        $('#hidden-hora').val(hora);
+
+        $('#confirmar-btn').prop('disabled', !hora);
+    });
+
+});
+</script>
+
+{% endblock %}
