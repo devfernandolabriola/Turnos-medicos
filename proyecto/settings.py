@@ -47,10 +47,13 @@ ROOT_URLCONF = 'proyecto.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # 👇 REPARADO: Le indicamos explícitamente a Django dónde buscar plantillas globales
+        'DIRS': [BASE_DIR / 'templates'], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                # 👇 AGREGADO: Es muy recomendable tener el procesador de debug por defecto
+                'django.template.context_processors.debug', 
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',

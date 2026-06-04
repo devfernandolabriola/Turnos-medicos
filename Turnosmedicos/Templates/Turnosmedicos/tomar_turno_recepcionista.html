@@ -22,6 +22,20 @@
         <input type="hidden" id="hidden-medico" name="medico">
         <input type="hidden" id="hidden-fecha" name="fecha">
         <input type="hidden" id="hidden-hora" name="hora">
+        <input type="hidden" id="hidden-paciente" name="paciente_id">
+        <input type="hidden" id="hidden-consultorio" name="consultorio_codigo">
+
+<div class="mb-3">
+    <label class="form-label fw-bold" style="color: #0d6efd;">Paciente (Asignar Turno a:)</label>
+    <select id="paciente-select" name="paciente" class="form-select" required>
+        <option value="">Seleccione un paciente</option>
+        {% for pac in pacientes %}
+            <option value="{{ pac.id }}">
+                {{ pac.apellido }}, {{ pac.nombre }} (DNI: {{ pac.dni }})
+            </option>
+        {% endfor %}
+    </select>
+</div>
 
         <!-- Especialidad -->
 <div class="mb-3">
@@ -60,6 +74,13 @@
             </select>
         </div>
 
+        <div class="mb-3">
+    <label class="form-label">Consultorio</label>
+    <select id="consultorio-select" class="form-select" disabled>
+        <option value="">Seleccione un consultorio</option>
+    </select>
+    </div>
+
         <!-- Botón -->
         <button type="submit" id="confirmar-btn" class="btn btn-success" disabled>
             Confirmar Turno
@@ -72,26 +93,54 @@
 <script>
 $(document).ready(function() {
 
+    // Cambia paciente → guarda su ID
+    $('#paciente-select').change(function() {
+    var pacienteId = $(this).val();
+    $('#hidden-paciente').val(pacienteId);
+    });
+
     // ------------------------------
     // Cambia especialidad → carga médicos
     // ------------------------------
     $('#especialidad-select').change(function() {
         var esp = $(this).val();
 
-        // Reset
-        $('#medico-select').prop('disabled', true).empty().append('<option>Seleccione un médico</option>');
-        $('#fecha-select').prop('disabled', true).empty().append('<option>Seleccione una fecha</option>');
-        $('#horario-select').prop('disabled', true).empty().append('<option>Seleccione un horario</option>');
+        // RESET COMPLETO (Sumamos consultorio al reset)
+        $('#medico-select').prop('disabled', true).empty().append('<option value="">Seleccione un médico</option>');
+        $('#consultorio-select').prop('disabled', true).empty().append('<option value="">Seleccione un consultorio</option>');
+        $('#fecha-select').prop('disabled', true).empty().append('<option value="">Seleccione una fecha</option>');
+        $('#horario-select').prop('disabled', true).empty().append('<option value="">Seleccione un horario</option>');
         $('#confirmar-btn').prop('disabled', true);
+        $('#hidden-consultorio').val('');
 
         if (esp) {
+            // 1. Carga de Médicos (Tu código actual)
             $.get("{% url 'ajax_medicos' %}", { especialidad: esp }, function(data){
                 $('#medico-select').prop('disabled', false);
                 data.forEach(function(m){
                     $('#medico-select').append('<option value="'+m.id+'">'+m.nombre+'</option>');
                 });
             });
+
+            $('#consultorio-select').prop('disabled', false);
+            // 2. 🆕 Carga de Consultorios por Especialidad
+            $.get("{% url 'ajax_consultorios' %}", { especialidad: esp }, function(data){
+                $('#consultorio-select').empty().append('<option value="">Seleccione un consultorio</option>');
+                data.forEach(function(c){
+                    // c.codigo mapea a la PK 'Codigo' y c.observaciones al texto
+                    var obs = c.observaciones ? ' (' + c.observaciones + ')' : '';
+                    $('#consultorio-select').append('<option value="'+c.codigo+'">Consultorio '+c.codigo+obs+'</option>');
+                });
+            });
         }
+    });
+
+    // ------------------------------
+    // 🆕 Cambia consultorio → guarda su Código
+    // ------------------------------
+    $('#consultorio-select').change(function() {
+        var consultorioCodigo = $(this).val();
+        $('#hidden-consultorio').val(consultorioCodigo);
     });
 
     // ------------------------------

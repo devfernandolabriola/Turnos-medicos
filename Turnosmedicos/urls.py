@@ -26,5 +26,7 @@ urlpatterns = [
     path('ajax/turnos/', views.ajax_turnos, name='ajax_turnos'),
     path('mis-turnos/', views.mis_turnos, name='mis_turnos'),
     path('ajax/fechas/', views.ajax_fechas, name='ajax_fechas'),
+    path('tomar_turno_recepcionista/', views.tomar_turno_recepcionista, name='turno_recepcionista'),
+    path('ajax/consultorios/', views.ajax_consultorios, name='ajax_consultorios'),
 ]
 

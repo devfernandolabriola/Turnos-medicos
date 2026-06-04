@@ -7,7 +7,7 @@ from .models import Especialidad
 from .models import Medico
 from .models import Turno
 from .models import DisponibilidadMedico
-from .models import Paciente
+from .models import Paciente, Consultorio
 from .serializers import MedicoSerializer
 from .serializers import EspecialidadSerializer
 from .serializers import TurnoSerializer
@@ -125,7 +125,7 @@ def register_view(request):
                     messages.error(request, "DNI ya registrado")
                 else:
                     serializer.save() 
-                    messages.success(request, "Registro exitoso. Ahora puedes iniciar sesión.")
+                    messages.success(request, "Paciente registrado con exito.")
                     return redirect('index')
             else:
                 messages.error(request, serializer.errors)
@@ -231,6 +231,12 @@ def ajax_turnos(request):
     medico = Medico.objects.get(id=medico_id)
 
     try:
+        # Traemos al médico e indicamos que traiga también su especialidad relacionada
+        medico = Medico.objects.select_related('especialidad').get(id=medico_id)
+    except Medico.DoesNotExist:
+        return JsonResponse([], safe=False)
+
+    try:
         disponibilidad = DisponibilidadMedico.objects.get(
             medico=medico, 
             dia_semana=dia_semana
@@ -249,6 +255,8 @@ def ajax_turnos(request):
     hora = datetime.combine(fecha, disponibilidad.hora_inicio)
     fin = datetime.combine(fecha, disponibilidad.hora_fin)
 
+    minutos_duracion = medico.especialidad.duracion_turno if medico.especialidad.duracion_turno else 15
+
     turnos = []
     while hora <= fin:
         if hora.time() not in turnos_ocupados:
@@ -256,7 +264,7 @@ def ajax_turnos(request):
                 'id': hora.strftime("%H:%M"),
                 'hora': hora.strftime("%H:%M")
             })
-        hora += timedelta(minutes=15)
+        hora += timedelta(minutes=minutos_duracion)
 
     return JsonResponse(turnos, safe=False)
 
@@ -294,3 +302,81 @@ def ajax_fechas(request):
     return JsonResponse(fechas, safe=False)
 
 
+def tomar_turno_recepcionista(request):
+    # Traemos todos los pacientes de la base de datos
+    pacientes = Paciente.objects.all().order_by('apellido', 'nombre')
+    
+    # Traemos las especialidades (que ya tenías en tu lógica)
+    especialidades = Especialidad.objects.all()
+    
+    context = {
+        'pacientes': pacientes,
+        'especialidades': especialidades,
+    }
+    
+    return render(request, "Turnosmedicos/tomar_turno_recepcionista.html", context)
+
+
+def tomar_turno_recepcionista(request):
+    
+    # Traer todas las especialidades para el dropdown
+    especialidades = Especialidad.objects.all()
+    pacientes = Paciente.objects.all().order_by('apellido', 'nombre')
+
+    if request.method == 'POST':
+        paciente_id = request.POST.get('paciente')
+        medico_id = request.POST.get('medico')
+        consultorio_id = request.POST.get('consultorio_codigo')
+        fecha_str = request.POST.get('fecha')
+        hora_str = request.POST.get('hora')
+
+        if not (paciente_id and medico_id and consultorio_id and fecha_str and hora_str):
+            messages.error(request, "Debe seleccionar Paciente, especialidad, médico, consultorio, fecha y horario.")
+            return redirect('turno_recepcionista')
+
+        # Obtener objeto paciente, medico, fecha y hora
+        paciente = Paciente.objects.get(id=paciente_id)
+        medico = Medico.objects.get(id=medico_id)
+        consultorio = Consultorio.objects.get(codigo=consultorio_id)
+        locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+        fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+        hora = datetime.strptime(hora_str, "%H:%M").time()
+
+        # Crear el turno en la DB
+        turno = Turno.objects.create(
+            medico=medico,
+            paciente=paciente,
+            consultorio_codigo=consultorio,
+            fecha=fecha,
+            hora=hora,
+            disponible=False,
+            estado=1
+        )
+
+        # Mensaje de éxito con detalle
+        messages.success(request, f"✅ Turno confirmado con {medico.nombre} {medico.apellido} el {fecha} a las {hora.strftime('%H:%M')}.")
+
+        return redirect('index')
+
+    # GET → renderizar formulario
+    return render(request, 'Turnosmedicos/tomar_turno_recepcionista.html', {
+        'especialidades': especialidades,
+        'pacientes': pacientes  # Por si lo querés usar en el template
+    })
+
+def ajax_consultorios(request):
+    especialidad_id = request.GET.get('especialidad')
+    
+    # 🛠️ CORRECCIÓN: Filtramos usando el nombre del atributo 'especialidad' 
+    # que definiste en la ForeignKey del modelo Consultorio
+    consultorios = Consultorio.objects.filter(especialidad=especialidad_id)
+    
+    # Armamos la lista para mandar a JS
+    data = []
+    for c in consultorios:
+        data.append({
+            'codigo': c.codigo,
+            'observaciones': c.observaciones
+        })
+        
+    return JsonResponse(data, safe=False)

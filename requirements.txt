@@ -1,0 +1,7 @@
+Django>=4.2,<5.1
+asgiref
+sqlparse
+tzdata
+pymysql
+djangorestframework
+django-widget-tweaks
