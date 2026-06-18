@@ -25,6 +25,8 @@ from django.contrib.auth.decorators import user_passes_test
 from .decorators import es_recepcionista
 from datetime import datetime, timedelta
 import locale
+from django.db.models import Q
+from django.utils import timezone
 
 
 
@@ -103,14 +105,19 @@ def login_view(request):
                 paciente = Paciente.objects.get(dni=dni)
                 if check_password(password, paciente.password):
                     request.session['paciente_id'] = paciente.id
-                    messages.success(request, f"Bienvenido {paciente.nombre} {paciente.apellido}!")
-                    return redirect('index')  # Redirige al index con mensaje de éxito
+                    messages.success(request, f"¡Bienvenido {paciente.nombre} {paciente.apellido}!")
+                    return redirect('index') 
                 else:
                     messages.error(request, "Contraseña incorrecta")
             except Paciente.DoesNotExist:
                 messages.error(request, "Paciente no encontrado")
+        
+        return render(request, 'Turnosmedicos/login.html', {'form': form})
+        
     else:
         form = LoginForm()
+        
+    return render(request, 'Turnosmedicos/login.html', {'form': form})
 
     return render(request, "Turnosmedicos/login.html", {"form": form})
 
@@ -380,3 +387,93 @@ def ajax_consultorios(request):
         })
         
     return JsonResponse(data, safe=False)
+
+def buscar_pacientes_ajax(request):
+    term = request.GET.get('q', '') # Captura lo que el usuario escribe
+    pacientes = Paciente.objects.all()
+    
+    if term:
+        # Busca por coincidencia parcial en nombre, apellido o DNI
+        pacientes = pacientes.filter(
+            Q(nombre__icontains=term) | 
+            Q(apellido__icontains=term) | 
+            Q(dni__icontains=term)
+        )[:10] # Limitamos a 10 resultados por rendimiento
+    
+    # Select2 requiere estrictamente un diccionario con la clave 'results' 
+    # y que cada objeto tenga 'id' y 'text'.
+    results = [
+        {
+            'id': p.id, 
+            'text': f"{p.apellido}, {p.nombre} (DNI: {p.dni})"
+        } for p in pacientes
+    ]
+    
+    return JsonResponse({'results': results})
+
+def panel_turnos_recepcionista(request):
+    fecha_filtro_str = request.GET.get('fecha')
+    
+    if fecha_filtro_str:
+        fecha_filtro = datetime.strptime(fecha_filtro_str, "%Y-%m-%d").date()
+    else:
+        fecha_filtro = timezone.now().date()
+
+    turnos = Turno.objects.filter(fecha=fecha_filtro).select_related('medico', 'paciente', 'consultorio_codigo').order_by('hora', 'medico__apellido')
+
+    MAPEO_CONSULTORIOS = {
+        'CA-01': 'Consultorio 1',
+        'CM-01': 'Consultorio 2',
+        'CM-02': 'Consultorio 3',
+        'DE-01': 'Consultorio 4',
+        'GI-01': 'Consultorio 5',
+        'PE-01': 'Consultorio 6',
+        'TR-01': 'Consultorio 7',
+    }
+
+    ESTADOS = {
+        1: "Reservado",
+        2: "Asistió",
+        3: "Cancelado",
+    }
+
+    for t in turnos:
+        t.estado_texto = ESTADOS.get(t.estado, "Desconocido")
+        codigo_real = t.consultorio_codigo.codigo if t.consultorio_codigo else ""
+        t.consultorio_nombre_lindo = MAPEO_CONSULTORIOS.get(codigo_real, f"Consultorio {codigo_real}")
+
+    return render(request, 'Turnosmedicos/panel_turnos.html', {
+        'turnos': turnos,
+        'fecha_filtro': fecha_filtro.strftime("%Y-%m-%d"), # Lo mandamos formateado para el input date
+        'hoy': timezone.now().date()
+    })
+
+
+def cancelar_turno_recepcionista(request, turno_id):
+    if request.method == 'POST':
+        turno = get_object_or_404(Turno, id=turno_id)
+        
+        # Cambiamos el estado a 3 (Cancelado) y lo liberamos para que se pueda volver a tomar si se quiere
+        turno.estado = 3
+        turno.disponible = True  
+        turno.save()
+        
+        messages.warning(request, f"❌ El turno de las {turno.hora.strftime('%H:%M')} fue cancelado correctamente.")
+        
+        # Redirigimos manteniendo la fecha en la que estaba parada la recepcionista
+        return redirect(f"/api/panel-recepcionista/?fecha={turno.fecha}")
+        
+    return redirect('panel_turnos_recepcionista')
+
+def asistio_turno_recepcionista(request, turno_id):
+    if request.method == 'POST':
+        turno = get_object_or_404(Turno, id=turno_id)
+        
+        # Estado 2 = Asistió. Mantenemos disponible = False porque el turno ya se usó.
+        turno.estado = 2
+        turno.save()
+        
+        messages.success(request, f"¡Asistencia confirmada para el turno de las {turno.hora.strftime('%H:%M')}!")
+        return redirect(f"/api/panel-recepcionista/?fecha={turno.fecha}")
+        
+    return redirect('panel_turnos_recepcionista')

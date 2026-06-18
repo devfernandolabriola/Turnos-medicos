@@ -1,0 +1,146 @@
+{% extends 'Turnosmedicos/index.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Agenda de Turnos</h2>
+        <span class="badge bg-primary fs-6">Hoy es: {{ hoy|date:"d/m/Y" }}</span>
+    </div>
+
+    <div class="card mb-4 bg-light">
+        <div class="card-body">
+            <form method="get" id="filtro-fecha-form" class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label for="fecha-input" class="form-label fw-bold mb-0">Ver turnos del día:</label>
+                </div>
+                <div class="col-auto">
+                    <input type="date" id="fecha-input" name="fecha" class="form-select" value="{{ fecha_filtro }}">
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-striped align-middle border">
+            <thead class="table-dark">
+                <tr>
+                    <th>Hora</th>
+                    <th>Médico</th>
+                    <th>Paciente / DNI</th>
+                    <th>Consultorio</th>
+                    <th>Estado</th>
+                    <th class="text-center" style="width: 220px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+    {% for turno in turnos %}
+        <tr {% if turno.estado == 2 %}class="table-success text-muted"
+            {% elif turno.estado == 3 %}class="table-danger text-decoration-line-through text-muted"{% endif %}>
+            
+            <td class="fw-bold">{{ turno.hora|time:"H:i" }} hs</td>
+            <td>{{ turno.medico.apellido }}, {{ turno.medico.nombre }}</td>
+            <td>
+                {% if turno.paciente %}
+                    {{ turno.paciente.apellido }}, {{ turno.paciente.nombre }} 
+                    <br><small class="text-muted">DNI: {{ turno.paciente.dni }}</small>
+                {% else %}
+                    <span class="text-muted">--</span>
+                {% endif %}
+            </td>
+            <td>
+                <span class="badge bg-secondary">{{ turno.consultorio_nombre_lindo }}</span>
+            </td>
+            <td>
+                {% if turno.estado == 1 %}
+                    <span class="badge bg-info text-dark">{{ turno.estado_texto }}</span>
+                {% elif turno.estado == 2 %}
+                    <span class="badge bg-success">{{ turno.estado_texto }}</span>
+                {% else %}
+                    <span class="badge bg-danger">{{ turno.estado_texto }}</span>
+                {% endif %}
+            </td>
+            <td class="text-center">
+                {% if turno.estado == 1 %}
+                    <div class="d-flex justify-content-center gap-2">
+                        <form action="{% url 'asistio_turno_recepcionista' turno.id %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success">
+                                Asistió
+                            </button>
+                        </form>
+
+                        <button type="button" 
+                                class="btn btn-sm btn-outline-danger btn-cancelar-modal" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#confirmarCancelacionModal"
+                                data-url="{% url 'cancelar_turno_recepcionista' turno.id %}"
+                                data-hora="{{ turno.hora|time:'H:i' }}"
+                                data-medico="Dr./Dra. {{ turno.medico.apellido }}">
+                            Cancelar
+                        </button>
+                    </div>
+                {% else %}
+                    <span class="text-muted small">Sin acciones</span>
+                {% endif %}
+            </td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="6" class="text-center py-4 text-muted">
+                No hay turnos registrados ni generados para la fecha seleccionada.
+            </td>
+        </tr>
+    {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmarCancelacionModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalLabel">⚠️ Confirmar Cancelación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro de que desea cancelar este turno médico?</p>
+                <div class="alert alert-light border mb-0">
+                    <strong>Médico:</strong> <span id="modal-detalle-medico"></span><br>
+                    <strong>Horario:</strong> <span id="modal-detalle-hora"></span> hs
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-modal="dismiss" data-bs-dismiss="modal">Volver</button>
+                <form id="form-cancelar-modal" action="" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Sí, Cancelar Turno</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. Enviar formulario automáticamente al cambiar la fecha en el calendario
+    document.getElementById('fecha-input').addEventListener('change', function() {
+        document.getElementById('filtro-fecha-form').submit();
+    });
+
+    // 2. JS dinámico para inyectar los datos correctos del turno dentro del Modal
+    const botonesCancelar = document.querySelectorAll('.btn-cancelar-modal');
+    botonesCancelar.forEach(boton => {
+        boton.addEventListener('click', function() {
+            const urlAccion = this.getAttribute('data-url');
+            const hora = this.getAttribute('data-hora');
+            const medico = this.getAttribute('data-medico');
+
+            // Actualizamos los textos y la URL del formulario dentro del modal
+            document.getElementById('form-cancelar-modal').setAttribute('action', urlAccion);
+            document.getElementById('modal-detalle-medico').textContent = medico;
+            document.getElementById('modal-detalle-hora').textContent = hora;
+        });
+    });
+</script>
+{% endblock %}

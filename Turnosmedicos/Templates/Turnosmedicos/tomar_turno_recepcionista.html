@@ -25,7 +25,7 @@
         <input type="hidden" id="hidden-paciente" name="paciente_id">
         <input type="hidden" id="hidden-consultorio" name="consultorio_codigo">
 
-<div class="mb-3">
+<!-- <div class="mb-3">
     <label class="form-label fw-bold" style="color: #0d6efd;">Paciente (Asignar Turno a:)</label>
     <select id="paciente-select" name="paciente" class="form-select" required>
         <option value="">Seleccione un paciente</option>
@@ -34,6 +34,13 @@
                 {{ pac.apellido }}, {{ pac.nombre }} (DNI: {{ pac.dni }})
             </option>
         {% endfor %}
+    </select>
+</div> -->
+
+<div class="mb-3">
+    <label class="form-label fw-bold" style="color: #0d6efd;">Paciente (Asignar Turno a:)</label>
+    <select id="paciente-select" name="paciente" class="form-select" required style="width: 100%;">
+        <option value="">Escriba Nombre, Apellido o DNI...</option>
     </select>
 </div>
 
@@ -93,6 +100,27 @@
 <script>
 $(document).ready(function() {
 
+$('#paciente-select').select2({
+        placeholder: 'Escriba Nombre, Apellido o DNI...',
+        minimumInputLength: 2, // Empieza a buscar a partir de 2 caracteres escritos
+        ajax: {
+            url: "{% url 'buscar_pacientes_ajax' %}",
+            dataType: 'json',
+            delay: 250, // Espera 250ms tras dejar de escribir para no saturar el servidor
+            data: function (params) {
+                return {
+                    q: params.term // Envía el texto escrito bajo el parámetro 'q'
+                };
+            },
+            processResults: function (data) {
+                return {
+                    results: data.results
+                };
+            },
+            cache: true
+        }
+    });
+    
     // Cambia paciente → guarda su ID
     $('#paciente-select').change(function() {
     var pacienteId = $(this).val();
@@ -126,11 +154,27 @@ $(document).ready(function() {
             // 2. 🆕 Carga de Consultorios por Especialidad
             $.get("{% url 'ajax_consultorios' %}", { especialidad: esp }, function(data){
                 $('#consultorio-select').empty().append('<option value="">Seleccione un consultorio</option>');
-                data.forEach(function(c){
-                    // c.codigo mapea a la PK 'Codigo' y c.observaciones al texto
-                    var obs = c.observaciones ? ' (' + c.observaciones + ')' : '';
-                    $('#consultorio-select').append('<option value="'+c.codigo+'">Consultorio '+c.codigo+obs+'</option>');
-                });
+                var mapeoConsultorios = {
+        'CA-01': 'Consultorio 1',
+        'CM-01': 'Consultorio 2',
+        'CM-02': 'Consultorio 3',
+        'DE-01': 'Consultorio 4',
+        'GI-01': 'Consultorio 5',
+        'PE-01': 'Consultorio 6',
+        'TR-01': 'Consultorio 7'
+    };
+
+    data.forEach(function(c){
+        var obs = c.observaciones ? ' (' + c.observaciones + ')' : '';
+        
+        // 🆕 Si el código existe en nuestro mapa, usamos el nombre lindo. 
+        // Si es un código nuevo que no agregamos todavía, muestra "Consultorio XX" por defecto.
+        var nombreLindo = mapeoConsultorios[c.codigo] ? mapeoConsultorios[c.codigo] : 'Consultorio ' + c.codigo;
+        
+        // El value sigue guardando el ID real ('CA-01') para que Django no falle, 
+        // pero la recepcionista lee el nombre amigable.
+        $('#consultorio-select').append('<option value="'+c.codigo+'">'+nombreLindo+obs+'</option>');
+    });
             });
         }
     });
@@ -201,5 +245,7 @@ $(document).ready(function() {
 
 });
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 {% endblock %}
